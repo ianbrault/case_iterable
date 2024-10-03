@@ -1,7 +1,16 @@
 [package]
 name = "case_iterable"
+authors = ["Ian Brault <ian@brault.dev>"]
 version = "0.1.0"
 edition = "2021"
+description = "A procedural macro to iterate over enum variants, ala Swift's CaseIterable"
+repository = "https://github.com/ianbrault/case_iterable"
+documentation = "https://github.com/ianbrault/case_iterable"
+readme = "README.md"
+license = "GPL-3.0"
+license-file = "LICENSE"
+categories = ["macros"]
+keywords = ["enum", "derive", "iterable", "macro"]
 
 [lib]
 proc-macro = true
