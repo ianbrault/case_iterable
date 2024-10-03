@@ -8,7 +8,7 @@ repository = "https://github.com/ianbrault/case_iterable"
 documentation = "https://github.com/ianbrault/case_iterable"
 readme = "README.md"
 license = "GPL-3.0"
-categories = ["macros"]
+categories = ["development-tools", "rust-patterns"]
 keywords = ["enum", "derive", "iterable", "macro"]
 
 [lib]
