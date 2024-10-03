@@ -1,7 +1,7 @@
+# `case_iterable`
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Crates.io](https://img.shields.io/crates/v/case_iterable.svg)](https://crates.io/crates/case_iterable)
-
-# `case_iterable`
 
 ## Installation
 
@@ -31,6 +31,21 @@ enum Foo {
 }
 
 for variant in Foo::all_cases() {
-    // Foo::A, Foo::Bar, Foo::Chocolate ...
+    // Foo::A
+    // Foo::Bar
+    // Foo::Chocolate
 }
 ```
+
+#### License
+
+<sup>
+Licensed under <a href="LICENSE">GNU General Public License, Version 3.0</a>
+</sup>
+
+<sub>
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+</sub>
