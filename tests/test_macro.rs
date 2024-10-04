@@ -13,6 +13,10 @@ fn test_expand() {
         C,
     }
 
+    assert_eq!(TestEnum::A.next(), Some(TestEnum::B));
+    assert_eq!(TestEnum::B.next(), Some(TestEnum::C));
+    assert_eq!(TestEnum::C.next(), None);
+
     let cases = TestEnum::all_cases().collect::<Vec<_>>();
     assert_eq!(cases.len(), 3);
     assert_eq!(cases[0], TestEnum::A);

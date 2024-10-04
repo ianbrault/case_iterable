@@ -16,69 +16,27 @@
 ** along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+mod ast;
+
+use ast::Path;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
 use syn::parse_macro_input;
 
-fn ident_to_type(ident: &syn::Ident) -> syn::Type {
-    let mut segments = syn::punctuated::Punctuated::new();
-    segments.push(syn::PathSegment {
-        ident: ident.clone(),
-        arguments: syn::PathArguments::None,
-    });
-    let path = syn::Path {
-        leading_colon: None,
-        segments,
-    };
-    let type_path = syn::TypePath { qself: None, path };
-    syn::Type::Path(type_path)
-}
-
-fn optionized_type(ident: &syn::Ident) -> syn::Type {
-    let enum_type = ident_to_type(ident);
-    let mut args = syn::punctuated::Punctuated::new();
-    args.push(syn::GenericArgument::Type(enum_type));
-
-    let mut segments = syn::punctuated::Punctuated::new();
-    segments.push(syn::PathSegment {
-        ident: syn::Ident::new("std", Span::call_site()),
-        arguments: syn::PathArguments::None,
-    });
-    segments.push(syn::PathSegment {
-        ident: syn::Ident::new("option", Span::call_site()),
-        arguments: syn::PathArguments::None,
-    });
-    segments.push(syn::PathSegment {
-        ident: syn::Ident::new("Option", Span::call_site()),
-        arguments: syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-            colon2_token: None,
-            lt_token: syn::Token![<](Span::call_site()),
-            args,
-            gt_token: syn::Token![>](Span::call_site()),
-        }),
-    });
-
-    let path = syn::Path {
-        leading_colon: None,
-        segments,
-    };
-    let type_path = syn::TypePath { qself: None, path };
-    syn::Type::Path(type_path)
-}
-
 fn gen_iter_struct(ast: &syn::DeriveInput) -> syn::ItemStruct {
     let enum_name = &ast.ident;
-    let iter_struct_name = syn::Ident::new(&format!("{}Iterator", enum_name), Span::call_site());
+    let enum_type = ast::Type::path_from_ident(enum_name.clone().into());
+    let iter_struct_name = ast::Ident::new(&format!("{}Iterator", enum_name));
 
     let mut named = syn::punctuated::Punctuated::new();
     named.push(syn::Field {
         attrs: Vec::new(),
         vis: syn::Visibility::Inherited,
         mutability: syn::FieldMutability::None,
-        ident: Some(syn::Ident::new("current", Span::call_site())),
+        ident: Some(ast::Ident::new("current").into()),
         colon_token: Some(syn::Token![:](Span::call_site())),
-        ty: optionized_type(enum_name),
+        ty: enum_type.into_option().into(),
     });
     let fields_named = syn::FieldsNamed {
         brace_token: syn::token::Brace(Span::call_site()),
@@ -90,27 +48,10 @@ fn gen_iter_struct(ast: &syn::DeriveInput) -> syn::ItemStruct {
         attrs: ast.attrs.clone(),
         struct_token: syn::Token![struct](Span::call_site()),
         vis: ast.vis.clone(),
-        ident: iter_struct_name,
+        ident: iter_struct_name.into(),
         generics: ast.generics.clone(),
         fields,
         semi_token: None,
-    }
-}
-
-fn gen_enum_path(enum_ident: &syn::Ident, variant_ident: &syn::Ident) -> syn::Path {
-    // path for a fully-resolved enum variant i.e. Foo::Bar
-    let mut segments = syn::punctuated::Punctuated::new();
-    segments.push(syn::PathSegment {
-        ident: enum_ident.clone(),
-        arguments: syn::PathArguments::None,
-    });
-    segments.push(syn::PathSegment {
-        ident: variant_ident.clone(),
-        arguments: syn::PathArguments::None,
-    });
-    syn::Path {
-        leading_colon: None,
-        segments,
     }
 }
 
@@ -122,22 +63,27 @@ fn gen_match_arm(
     // format:
     // Enum::A => Some(Enum::B) if not final
     // Enum::X => None if final
+
+    let mut enum_path = ast::Path::new();
+    enum_path.push(enum_ident.into());
+    enum_path.push(left.into());
+
     let pat = syn::Pat::Path(syn::ExprPath {
         attrs: Vec::new(),
         qself: None,
-        path: gen_enum_path(enum_ident, left),
+        path: enum_path.into(),
     });
-    let body = Box::new(syn::Expr::Verbatim(if let Some(ident) = right {
+    let body = ast::Expr::tokens(if let Some(ident) = right {
         quote! { Some(#enum_ident::#ident) }
     } else {
         quote! { None }
-    }));
+    });
     syn::Arm {
         attrs: Vec::new(),
         pat,
         guard: None,
         fat_arrow_token: syn::Token![=>](Span::call_site()),
-        body,
+        body: Box::new(body.into()),
         comma: Some(syn::Token![,](Span::call_site())),
     }
 }
@@ -150,8 +96,11 @@ fn gen_match_expr(enum_ident: &syn::Ident, variants: Vec<&syn::Variant>) -> syn:
         }
     }
 
-    // iterator self.current is an optional that is unwrapped with variable inner
-    let match_field = syn::Expr::Verbatim(quote! { inner });
+    // match on &self
+    let self_ident = ast::Ident::new("self");
+    let self_expr = ast::Expr::path(Path::with_ident(self_ident));
+    let match_field = ast::Expr::reference(self_expr);
+
     let arms = variants
         .iter()
         .enumerate()
@@ -171,7 +120,7 @@ fn gen_match_expr(enum_ident: &syn::Ident, variants: Vec<&syn::Variant>) -> syn:
     syn::ExprMatch {
         attrs: Vec::new(),
         match_token: syn::Token![match](Span::call_site()),
-        expr: Box::new(match_field),
+        expr: Box::new(match_field.into()),
         brace_token: syn::token::Brace(Span::call_site()),
         arms,
     }
@@ -180,8 +129,11 @@ fn gen_match_expr(enum_ident: &syn::Ident, variants: Vec<&syn::Variant>) -> syn:
 #[proc_macro_derive(CaseIterable)]
 pub fn derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
-    let name = &ast.ident;
-    let iter_name = syn::Ident::new(&format!("{}Iterator", name), name.span());
+
+    let enum_name = &ast.ident;
+    let enum_type = ast::Type::path_from_ident(enum_name.into());
+    let enum_option_type: syn::Type = enum_type.into_option().into();
+    let iter_name: syn::Ident = ast::Ident::new(&format!("{}Iterator", enum_name)).into();
 
     // generate the <Enum>Iterator struct definition
     let iter_struct = gen_iter_struct(&ast);
@@ -194,34 +146,38 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let fields = enum_ref.variants.iter().collect::<Vec<_>>();
     let first_field = &fields.first().expect("No enum fields").ident;
     // and generate the match expression used to select the next enum in the iterator
-    let iter_match_expr = gen_match_expr(name, fields);
+    let iter_match_expr = gen_match_expr(enum_name, fields);
 
     // produce macro output token stream
     let tokens = quote! {
+        impl #enum_name {
+            pub fn next(&self) -> #enum_option_type {
+                #iter_match_expr
+            }
+
+            pub fn all_cases() -> #iter_name {
+                #iter_name::new(#enum_name::#first_field)
+            }
+        }
+
         #iter_struct
 
         impl #iter_name {
-            fn new(from: #name) -> Self {
+            fn new(from: #enum_name) -> Self {
                 Self { current: Some(from) }
             }
         }
 
         impl Iterator for #iter_name {
-            type Item = #name;
+            type Item = #enum_name;
 
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(inner) = &self.current {
-                    let new = #iter_match_expr;
+                    let new = inner.next();
                     std::mem::replace(&mut self.current, new)
                 } else {
                     None
                 }
-            }
-        }
-
-        impl #name {
-            fn all_cases() -> #iter_name {
-                #iter_name::new(#name::#first_field)
             }
         }
     };

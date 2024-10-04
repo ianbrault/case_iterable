@@ -1,7 +1,7 @@
 [package]
 name = "case_iterable"
 authors = ["Ian Brault <ian@brault.dev>"]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A procedural macro to iterate over enum variants, ala Swift's CaseIterable"
 repository = "https://github.com/ianbrault/case_iterable"

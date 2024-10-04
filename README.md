@@ -15,7 +15,7 @@ or by manually adding it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-case_iterable = "0.1.0"
+case_iterable = "0.2.0"
 ```
 
 ## Usage
@@ -35,6 +35,10 @@ for variant in Foo::all_cases() {
     // Foo::Bar
     // Foo::Chocolate
 }
+
+// also exposes the next function used for the iterator
+let x = Foo::Bar;
+let y = x.next();  // Some(Foo::Chocolate)
 ```
 
 #### License
